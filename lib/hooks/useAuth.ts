@@ -23,7 +23,9 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery<User | null>({
     queryKey: ['auth', 'me'],
     queryFn: async () => {
-      const res = await fetch('/api/auth/me');
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include', // Ensure cookies are sent
+      });
       if (!res.ok) {
         return null;
       }
@@ -38,6 +40,7 @@ export function useAuth() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Ensure cookies are sent/received
         body: JSON.stringify(credentials),
       });
       if (!res.ok) {
@@ -51,11 +54,11 @@ export function useAuth() {
       if (response?.data?.user) {
         queryClient.setQueryData(['auth', 'me'], response.data.user);
       }
-      // Refetch to ensure we have the latest data
+      // Refetch to ensure we have the latest data and cookie is set
       await queryClient.refetchQueries({ queryKey: ['auth', 'me'] });
       toast.success('Logged in successfully');
-      // Use window.location for a hard redirect to ensure it happens
-      window.location.href = '/admin';
+      // Use router.push to preserve React Query cache instead of hard redirect
+      router.push('/admin');
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -64,7 +67,10 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include', // Ensure cookies are sent
+      });
       if (!res.ok) {
         throw new Error('Logout failed');
       }

@@ -6,7 +6,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Post from '@/lib/models/Post';
 import { updatePostSchema } from '@/lib/schemas/post';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
@@ -19,9 +18,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
-
-    const post = await Post.findById(params.id).populate('author', 'name email').lean();
+    const post = await Post.findById(params.id, true);
 
     if (!post) {
       return errorResponse('Post not found', 404);
@@ -44,8 +41,6 @@ export async function PUT(
       return authResult;
     }
 
-    await connectDB();
-
     const post = await Post.findById(params.id);
     if (!post) {
       return errorResponse('Post not found', 404);
@@ -54,7 +49,7 @@ export async function PUT(
     const body = await request.json();
 
     // Parse frontmatter if content is provided
-    let postData = { ...body };
+    let postData: any = { ...body };
     if (body.content) {
       const { frontmatter, content: markdownContent } = parseFrontmatter(body.content);
       
@@ -65,9 +60,9 @@ export async function PUT(
         excerpt: postData.excerpt || frontmatter.description,
         tags: postData.tags || frontmatter.tags || post.tags,
         published: postData.published ?? frontmatter.published ?? post.published,
-        publishedAt: postData.publishedAt || (frontmatter.date ? new Date(frontmatter.date) : post.publishedAt),
-        seoTitle: postData.seoTitle || frontmatter.seoTitle,
-        seoDescription: postData.seoDescription || frontmatter.seoDescription,
+        published_at: postData.publishedAt || postData.published_at || (frontmatter.date ? new Date(frontmatter.date).toISOString() : post.published_at),
+        seo_title: postData.seoTitle || frontmatter.seoTitle,
+        seo_description: postData.seoDescription || frontmatter.seoDescription,
       };
 
       // Validate frontmatter
@@ -92,16 +87,27 @@ export async function PUT(
 
     // Check slug uniqueness if slug is being updated
     if (validation.data.slug && validation.data.slug !== post.slug) {
-      const existingPost = await Post.findOne({ slug: validation.data.slug });
+      const existingPost = await Post.findBySlug(validation.data.slug);
       if (existingPost) {
         return errorResponse('A post with this slug already exists', 409);
       }
     }
 
-    Object.assign(post, validation.data);
-    await post.save();
+    // Convert to Supabase format
+    const updateData: any = {};
+    if (validation.data.title !== undefined) updateData.title = validation.data.title;
+    if (validation.data.slug !== undefined) updateData.slug = validation.data.slug;
+    if (validation.data.content !== undefined) updateData.content = validation.data.content;
+    if (validation.data.excerpt !== undefined) updateData.excerpt = validation.data.excerpt;
+    if (validation.data.tags !== undefined) updateData.tags = validation.data.tags;
+    if (validation.data.published !== undefined) updateData.published = validation.data.published;
+    if (postData.published_at !== undefined) updateData.published_at = postData.published_at;
+    if (postData.seo_title !== undefined) updateData.seo_title = postData.seo_title;
+    if (postData.seo_description !== undefined) updateData.seo_description = postData.seo_description;
 
-    return successResponse(post);
+    const updatedPost = await Post.update(params.id, updateData);
+
+    return successResponse(updatedPost);
   } catch (error) {
     return handleApiError(error);
   }
@@ -118,13 +124,12 @@ export async function DELETE(
       return authResult;
     }
 
-    await connectDB();
-
-    const post = await Post.findByIdAndDelete(params.id);
-
+    const post = await Post.findById(params.id);
     if (!post) {
       return errorResponse('Post not found', 404);
     }
+
+    await Post.delete(params.id);
 
     return successResponse({ message: 'Post deleted successfully' });
   } catch (error) {

@@ -4,7 +4,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Project from '@/lib/models/Project';
 import Post from '@/lib/models/Post';
 import Media from '@/lib/models/Media';
@@ -19,22 +18,20 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    await connectDB();
-
-    const [totalProjects, totalPosts, totalMedia, recentProjects, recentPosts] = await Promise.all([
-      Project.countDocuments(),
-      Post.countDocuments(),
-      Media.countDocuments(),
-      Project.find().sort({ updatedAt: -1 }).limit(5).lean(),
-      Post.find().sort({ updatedAt: -1 }).limit(5).populate('author', 'name').lean(),
+    const [totalProjects, totalPosts, totalMedia, recentProjectsResult, recentPostsResult] = await Promise.all([
+      Project.count(),
+      Post.count(),
+      Media.find({ limit: 1 }).then(r => r.total),
+      Project.find({ limit: 5 }),
+      Post.find({ limit: 5, includeAuthor: true }),
     ]);
 
     return successResponse({
       totalProjects,
       totalPosts,
       totalMedia,
-      recentProjects,
-      recentPosts,
+      recentProjects: recentProjectsResult.projects,
+      recentPosts: recentPostsResult.posts,
     });
   } catch (error) {
     return handleApiError(error);

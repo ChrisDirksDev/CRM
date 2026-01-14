@@ -7,7 +7,6 @@
 import { NextRequest } from 'next/server';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
-import connectDB from '@/lib/db/connect';
 import Media from '@/lib/models/Media';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
 import { requireAuth } from '@/lib/middleware/auth';
@@ -17,9 +16,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
-
-    const media = await Media.findById(params.id).populate('uploadedBy', 'name email').lean();
+    const media = await Media.findById(params.id);
 
     if (!media) {
       return errorResponse('Media not found', 404);
@@ -42,8 +39,6 @@ export async function DELETE(
       return authResult;
     }
 
-    await connectDB();
-
     const media = await Media.findById(params.id);
     if (!media) {
       return errorResponse('Media not found', 404);
@@ -55,7 +50,7 @@ export async function DELETE(
     }
 
     // Delete from database
-    await Media.findByIdAndDelete(params.id);
+    await Media.delete(params.id);
 
     return successResponse({ message: 'Media deleted successfully' });
   } catch (error) {

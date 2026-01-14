@@ -1,6 +1,6 @@
 # Portfolio CMS
 
-A modern, headless content management system built with Next.js, MongoDB, and TypeScript.
+A modern, headless content management system built with Next.js, Supabase, and TypeScript. Optimized for serverless deployment on Vercel.
 
 ## Features
 
@@ -10,12 +10,14 @@ A modern, headless content management system built with Next.js, MongoDB, and Ty
 - **REST API**: Full CRUD operations via API endpoints
 - **Public API**: Read-only endpoints for content delivery
 - **Admin Dashboard**: Beautiful, responsive admin interface
+- **Serverless Ready**: Optimized for Vercel serverless functions
 
 ## Tech Stack
 
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS
-- **Backend**: Next.js Route Handlers
-- **Database**: MongoDB with Mongoose
+- **Backend**: Next.js Route Handlers (Serverless Functions)
+- **Database**: Supabase (PostgreSQL)
+- **Deployment**: Vercel
 - **Validation**: Zod
 - **State Management**: React Query
 - **Editor**: react-markdown with remark plugins
@@ -27,39 +29,55 @@ A modern, headless content management system built with Next.js, MongoDB, and Ty
 npm install
 ```
 
-2. Set up environment variables:
+2. Set up Supabase:
+   - Create a new project at [supabase.com](https://supabase.com)
+   - Run the SQL schema from `supabase-schema.sql` in the Supabase SQL Editor
+   - Copy your project URL and API keys
+
+3. Set up environment variables in `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+4. Seed the database with an admin user:
 ```bash
-cp .env.example .env.local
+npm run seed
 ```
 
-3. Configure MongoDB connection in `.env.local`:
-```
-MONGODB_URI=mongodb://localhost:27017/portfolio-cms
-NEXTAUTH_SECRET=your-secret-key
-NEXTAUTH_URL=http://localhost:3000
-```
-
-4. Run the development server:
+5. Run the development server:
 ```bash
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Deployment to Vercel
+
+See [VERCEL_SETUP.md](./VERCEL_SETUP.md) for detailed deployment instructions.
+
+1. Push your code to GitHub
+2. Import the repository in Vercel
+3. Add environment variables in Vercel project settings
+4. Deploy
 
 ## Project Structure
 
 ```
 ├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── (admin)/           # Admin dashboard routes
+│   ├── api/               # API routes (serverless functions)
+│   ├── admin/             # Admin dashboard routes
 │   └── layout.tsx         # Root layout
 ├── components/            # Reusable UI components
 ├── lib/                   # Utilities and helpers
-│   ├── db/               # Database connection
-│   ├── models/           # Mongoose models
+│   ├── db/               # Supabase connection
+│   ├── models/           # Supabase models and queries
 │   └── schemas/          # Zod validation schemas
 ├── types/                 # TypeScript type definitions
-└── public/                # Static assets
+├── supabase-schema.sql    # Database schema
+└── vercel.json            # Vercel configuration
 ```
 
 ## API Endpoints

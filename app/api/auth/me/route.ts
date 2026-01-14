@@ -4,7 +4,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import User from '@/lib/models/User';
 import { successResponse, errorResponse } from '@/lib/utils/api';
 import { requireAuth } from '@/lib/middleware/auth';
@@ -18,15 +17,16 @@ export async function GET(request: NextRequest) {
     }
     const { userId } = authResult;
 
-    await connectDB();
-
-    const user = await User.findById(userId).select('-password').lean();
+    const user = await User.findById(userId);
 
     if (!user) {
       return errorResponse('User not found', 404);
     }
 
-    return successResponse(user);
+    // Remove password from response
+    const { password, ...userWithoutPassword } = user;
+
+    return successResponse(userWithoutPassword);
   } catch (error) {
     return errorResponse('An error occurred', 500);
   }

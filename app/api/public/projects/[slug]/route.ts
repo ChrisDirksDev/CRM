@@ -4,7 +4,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Project from '@/lib/models/Project';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
 
@@ -13,14 +12,9 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   try {
-    await connectDB();
+    const project = await Project.findBySlug(params.slug);
 
-    const project = await Project.findOne({
-      slug: params.slug,
-      published: true,
-    }).select('-__v').lean();
-
-    if (!project) {
+    if (!project || !project.published) {
       return errorResponse('Project not found', 404);
     }
 

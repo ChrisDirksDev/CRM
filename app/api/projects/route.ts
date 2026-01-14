@@ -5,7 +5,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Project from '@/lib/models/Project';
 import { createProjectSchema } from '@/lib/schemas/project';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
@@ -14,16 +13,13 @@ import { generateSlug } from '@/lib/utils/slug';
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
-
     const { searchParams } = new URL(request.url);
     const published = searchParams.get('published');
     const featured = searchParams.get('featured');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
 
-    const query: any = {};
+    const query: { published?: boolean; featured?: boolean } = {};
     if (published !== null) {
       query.published = published === 'true';
     }
@@ -31,10 +27,11 @@ export async function GET(request: NextRequest) {
       query.featured = featured === 'true';
     }
 
-    const [projects, total] = await Promise.all([
-      Project.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      Project.countDocuments(query),
-    ]);
+    const { projects, total } = await Project.find({
+      ...query,
+      page,
+      limit,
+    });
 
     return successResponse({
       projects,
@@ -58,8 +55,6 @@ export async function POST(request: NextRequest) {
       return authResult;
     }
 
-    await connectDB();
-
     const body = await request.json();
 
     // Generate slug if not provided
@@ -74,12 +69,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if slug already exists
-    const existingProject = await Project.findOne({ slug: validation.data.slug });
+    const existingProject = await Project.findBySlug(validation.data.slug);
     if (existingProject) {
       return errorResponse('A project with this slug already exists', 409);
     }
 
-    const project = await Project.create(validation.data);
+    // Convert to Supabase format
+    const projectData = {
+      title: validation.data.title,
+      slug: validation.data.slug,
+      description: validation.data.description,
+      content: validation.data.content,
+      images: validation.data.images || [],
+      technologies: validation.data.technologies || [],
+      github_link: validation.data.githubLink,
+      demo_link: validation.data.demoLink,
+      featured: validation.data.featured ?? false,
+      published: validation.data.published ?? false,
+      seo_title: validation.data.seoTitle,
+      seo_description: validation.data.seoDescription,
+    };
+
+    const project = await Project.create(projectData);
 
     return successResponse(project, 201);
   } catch (error) {

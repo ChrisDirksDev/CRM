@@ -7,7 +7,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
-import mongoose from 'mongoose';
 import User from '../lib/models/User';
 
 // Load environment variables from .env.local (preferred) or .env
@@ -21,25 +20,26 @@ if (existsSync(envLocalPath)) {
   config({ path: envPath });
   console.log('📝 Loaded environment variables from .env');
 } else {
-  console.log('⚠️  No .env.local or .env file found. Using default values.');
+  console.log('⚠️  No .env.local or .env file found.');
 }
-
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio-cms';
 
 async function seed() {
   try {
-    if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/portfolio-cms') {
-      console.log('⚠️  Using default MongoDB URI. Set MONGODB_URI in .env.local for production.');
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Missing Supabase configuration!');
+      console.error('Please set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your .env.local file');
+      process.exit(1);
     }
-    
-    await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+
+    console.log('✅ Connected to Supabase');
 
     // Check if admin user already exists
-    const existingUser = await User.findOne({ email: 'admin@example.com' });
+    const existingUser = await User.findByEmail('admin@example.com');
     if (existingUser) {
       console.log('ℹ️  Admin user already exists');
-      await mongoose.disconnect();
       return;
     }
 
@@ -55,9 +55,6 @@ async function seed() {
     console.log('📧 Email: admin@example.com');
     console.log('🔑 Password: password123');
     console.log('\n⚠️  Please change the default password after first login!');
-
-    await mongoose.disconnect();
-    console.log('✅ Disconnected from MongoDB');
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     process.exit(1);
@@ -65,4 +62,3 @@ async function seed() {
 }
 
 seed();
-

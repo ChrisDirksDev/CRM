@@ -31,7 +31,10 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include', // Ensure cookies are sent
+      });
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);

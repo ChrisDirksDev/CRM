@@ -5,7 +5,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Post from '@/lib/models/Post';
 import { createPostSchema } from '@/lib/schemas/post';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
@@ -15,32 +14,26 @@ import { parseFrontmatter, validateFrontmatter } from '@/lib/utils/frontmatter';
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB();
-
     const { searchParams } = new URL(request.url);
     const published = searchParams.get('published');
     const tag = searchParams.get('tag');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const skip = (page - 1) * limit;
 
-    const query: any = {};
+    const query: { published?: boolean; tag?: string } = {};
     if (published !== null) {
       query.published = published === 'true';
     }
     if (tag) {
-      query.tags = tag;
+      query.tag = tag;
     }
 
-    const [posts, total] = await Promise.all([
-      Post.find(query)
-        .populate('author', 'name email')
-        .sort({ publishedAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Post.countDocuments(query),
-    ]);
+    const { posts, total } = await Post.find({
+      ...query,
+      page,
+      limit,
+      includeAuthor: true,
+    });
 
     return successResponse({
       posts,
@@ -65,8 +58,6 @@ export async function POST(request: NextRequest) {
     }
     const { userId } = authResult;
 
-    await connectDB();
-
     const body = await request.json();
 
     // Parse frontmatter from content
@@ -90,10 +81,10 @@ export async function POST(request: NextRequest) {
       excerpt: body.excerpt || frontmatter.description,
       tags: body.tags || frontmatter.tags || [],
       published: body.published ?? frontmatter.published ?? false,
-      publishedAt: body.publishedAt || (frontmatter.date ? new Date(frontmatter.date) : undefined),
-      seoTitle: body.seoTitle || frontmatter.seoTitle,
-      seoDescription: body.seoDescription || frontmatter.seoDescription,
-      author: userId,
+      published_at: body.publishedAt || body.published_at || (frontmatter.date ? new Date(frontmatter.date).toISOString() : undefined),
+      seo_title: body.seoTitle || frontmatter.seoTitle,
+      seo_description: body.seoDescription || frontmatter.seoDescription,
+      author_id: userId,
     };
 
     // Validate input
@@ -111,12 +102,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if slug already exists
-    const existingPost = await Post.findOne({ slug: validation.data.slug });
+    const existingPost = await Post.findBySlug(validation.data.slug);
     if (existingPost) {
       return errorResponse('A post with this slug already exists', 409);
     }
 
-    const post = await Post.create(validation.data);
+    const post = await Post.create({
+      title: validation.data.title,
+      slug: validation.data.slug,
+      content: validation.data.content,
+      excerpt: validation.data.excerpt,
+      tags: validation.data.tags,
+      published: validation.data.published,
+      published_at: postData.published_at,
+      author_id: userId,
+      seo_title: postData.seo_title,
+      seo_description: postData.seo_description,
+    });
 
     return successResponse(post, 201);
   } catch (error) {

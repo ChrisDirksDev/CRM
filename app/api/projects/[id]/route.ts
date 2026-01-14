@@ -6,7 +6,6 @@
  */
 
 import { NextRequest } from 'next/server';
-import connectDB from '@/lib/db/connect';
 import Project from '@/lib/models/Project';
 import { updateProjectSchema } from '@/lib/schemas/project';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
@@ -18,9 +17,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await connectDB();
-
-    const project = await Project.findById(params.id).lean();
+    const project = await Project.findById(params.id);
 
     if (!project) {
       return errorResponse('Project not found', 404);
@@ -43,8 +40,6 @@ export async function PUT(
       return authResult;
     }
 
-    await connectDB();
-
     const project = await Project.findById(params.id);
     if (!project) {
       return errorResponse('Project not found', 404);
@@ -65,16 +60,30 @@ export async function PUT(
 
     // Check slug uniqueness if slug is being updated
     if (validation.data.slug && validation.data.slug !== project.slug) {
-      const existingProject = await Project.findOne({ slug: validation.data.slug });
+      const existingProject = await Project.findBySlug(validation.data.slug);
       if (existingProject) {
         return errorResponse('A project with this slug already exists', 409);
       }
     }
 
-    Object.assign(project, validation.data);
-    await project.save();
+    // Convert to Supabase format
+    const updateData: any = {};
+    if (validation.data.title !== undefined) updateData.title = validation.data.title;
+    if (validation.data.slug !== undefined) updateData.slug = validation.data.slug;
+    if (validation.data.description !== undefined) updateData.description = validation.data.description;
+    if (validation.data.content !== undefined) updateData.content = validation.data.content;
+    if (validation.data.images !== undefined) updateData.images = validation.data.images;
+    if (validation.data.technologies !== undefined) updateData.technologies = validation.data.technologies;
+    if (validation.data.githubLink !== undefined) updateData.github_link = validation.data.githubLink;
+    if (validation.data.demoLink !== undefined) updateData.demo_link = validation.data.demoLink;
+    if (validation.data.featured !== undefined) updateData.featured = validation.data.featured;
+    if (validation.data.published !== undefined) updateData.published = validation.data.published;
+    if (validation.data.seoTitle !== undefined) updateData.seo_title = validation.data.seoTitle;
+    if (validation.data.seoDescription !== undefined) updateData.seo_description = validation.data.seoDescription;
 
-    return successResponse(project);
+    const updatedProject = await Project.update(params.id, updateData);
+
+    return successResponse(updatedProject);
   } catch (error) {
     return handleApiError(error);
   }
@@ -91,13 +100,12 @@ export async function DELETE(
       return authResult;
     }
 
-    await connectDB();
-
-    const project = await Project.findByIdAndDelete(params.id);
-
+    const project = await Project.findById(params.id);
     if (!project) {
       return errorResponse('Project not found', 404);
     }
+
+    await Project.delete(params.id);
 
     return successResponse({ message: 'Project deleted successfully' });
   } catch (error) {

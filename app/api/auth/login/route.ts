@@ -5,16 +5,13 @@
 
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import connectDB from '@/lib/db/connect';
-import User from '@/lib/models/User';
+import User, { comparePassword } from '@/lib/models/User';
 import { loginSchema } from '@/lib/schemas/auth';
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api';
 import { createSession } from '@/lib/middleware/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB();
-
     const body = await request.json();
 
     // Validate input
@@ -25,20 +22,20 @@ export async function POST(request: NextRequest) {
 
     const { email, password } = validation.data;
 
-    // Find user
-    const user = await User.findOne({ email }).select('+password');
+    // Find user (need to get password for comparison)
+    const user = await User.findByEmail(email);
     if (!user) {
       return errorResponse('Invalid email or password', 401);
     }
 
     // Check password
-    const isPasswordValid = await user.comparePassword(password);
+    const isPasswordValid = await comparePassword(password, user.password);
     if (!isPasswordValid) {
       return errorResponse('Invalid email or password', 401);
     }
 
     // Create session
-    const token = createSession(user._id.toString());
+    const token = createSession(user.id);
 
     // Set cookie
     const cookieStore = await cookies();
@@ -51,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     return successResponse({
       user: {
-        id: user._id,
+        id: user.id,
         email: user.email,
         name: user.name,
         role: user.role,
